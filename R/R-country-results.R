@@ -7,7 +7,7 @@
 library(openxlsx)
 library(dplyr)
 
-# Install latest version of 'healthequal' from Github
+# Install latest version of 'healthequal' from GitHub
 remotes::install_github("WHOequity/healthequal")
 library(healthequal)
 
@@ -27,30 +27,35 @@ data_imm <- df_imm %>%
                           "Subnational region"),
          wbincome2024 %in% c("Low income", "Lower middle income",
                              "Upper middle income")) %>%
-  group_by(setting, date, indicator_abbr, dimension) %>%
-  
-  ### Drop if all subgroups have missing data or all values equal to zero
-  mutate(count = n(), todrop = all(is.na(estimate)),
+  group_by(setting,
+           date,
+           indicator_abbr,
+           dimension) %>%
+   ### Drop if all subgroups have missing data or all values equal to zero
+  mutate(count = n(),
+         todrop = all(is.na(estimate)),
          avge = mean(estimate, na.rm = TRUE)) %>%
-  filter(todrop != TRUE) %>% filter(avge != 0) %>% filter(!is.nan(avge)) %>%
-  filter((dimension == "Economic status (wealth quintile)" & count == 5) | 
-           (dimension == "Place of residence" & count == 2) | 
-           dimension == "Subnational region") %>%
-  
+  filter(todrop != TRUE,
+         avge != 0,
+         !is.nan(avge),
+        (dimension == "Economic status (wealth quintile)" & count == 5) | 
+        (dimension == "Place of residence" & count == 2) | 
+        dimension == "Subnational region") %>%
   ### Drop if >85% of subnational regions missing data 
   mutate(mis = is.na(estimate) == 1,
          lim15 = sum(mis)/count,
          nunique = length(unique(estimate))) %>%
   filter((dimension == "Subnational region" & lim15 < .15) |
-           (dimension != "Subnational region" & lim15 == 0)) %>%
-  filter(nunique != 1) %>%
+         (dimension != "Subnational region" & lim15 == 0),
+         nunique != 1) %>%
   mutate(rnumber = as.numeric(row_number() == 1)) %>% 
   ungroup() %>%
   mutate(favourable_indicator_new = 1) %>%
   
   ### Keep latest data between 2013-2022
   filter(date >= 2013 & date <= 2022) %>% 
-  group_by(setting, indicator_abbr) %>%
+  group_by(setting,
+           indicator_abbr) %>%
   mutate(max_date = max(date)) %>%
   ungroup() %>%
   mutate(latest = date == max_date) %>%
@@ -65,7 +70,8 @@ df_gdl <- read.xlsx(paste0(api,"rep_gdl2/data"))
 ## Keep latest data between 2013-2022
 data_gdl <- df_gdl %>%
   filter(date >= 2013 & date <= 2022) %>% 
-  group_by(setting, indicator_abbr) %>%
+  group_by(setting,
+           indicator_abbr) %>%
   mutate(max_date = max(date)) %>%
   ungroup() %>%
   mutate(latest = date == max_date) %>%
@@ -74,12 +80,19 @@ data_gdl <- df_gdl %>%
 
 ## Keep required immunization indicators
 data_gdl <- data_gdl %>%
-  filter(indicator_abbr %in% c("dtp3age1", "dtp1age1") & dimension == "Subnational region") %>%
+  filter(indicator_abbr %in% c("dtp3age1",
+                               "dtp1age1") & 
+                            dimension == "Subnational region") %>%
   mutate(estimate = ifelse(indicator_abbr == "dtp1age1", 100 - estimate, estimate),
-         indicator_name = ifelse(indicator_abbr == "dtp1age1", "One-year-old children who did not receive any doses of the DTP vaccine", indicator_name),
-         indicator_abbr = ifelse(indicator_abbr == "dtp1age1", "vzdpt", indicator_abbr),
-         indicator_abbr = ifelse(indicator_abbr == "dtp3age1", "vdpt", indicator_abbr),
-         favourable_indicator = ifelse(indicator_abbr == "vzdpt", 0, favourable_indicator)) %>%
+         indicator_name = ifelse(indicator_abbr == "dtp1age1",
+                                 "One-year-old children who did not receive 
+                                 any doses of the DTP vaccine", indicator_name),
+         indicator_abbr = ifelse(indicator_abbr == "dtp1age1",
+                                 "vzdpt", indicator_abbr),
+         indicator_abbr = ifelse(indicator_abbr == "dtp3age1",
+                                 "vdpt", indicator_abbr),
+         favourable_indicator = ifelse(indicator_abbr == "vzdpt",
+                                       0, favourable_indicator)) %>%
   filter(wbincome2024 != "High income")
 
 ## Import subnational HDI values
@@ -87,21 +100,32 @@ df_hdi <- read.xlsx(paste0(api,"rep_gdl1/data"))
 data_hdi <- df_hdi %>%
   filter(indicator_abbr == "shdi") %>%
   rename(hdi = estimate) %>%
-  select(setting, date, subgroup, hdi)
+  select(setting,
+         date,
+         subgroup,
+         hdi)
 
 ## Merge subnational HDI values
 data_merged <- data_gdl %>% 
-  left_join(data_hdi, by = c("setting", "date", "subgroup")) %>%
-  arrange(setting, date, indicator_abbr, hdi) 
+  left_join(data_hdi, by = c("setting",
+                             "date",
+                             "subgroup")) %>%
+  arrange(setting,
+          date,
+          indicator_abbr,
+          hdi) 
 
 ## Order subnational regions
 data_merged <- data_merged %>%
-  group_by(setting, date, indicator_abbr) %>%
+  group_by(setting,
+           date,
+           indicator_abbr) %>%
   mutate(subgroup_order = row_number(),
          ordered_dimension = 1,
          dimension = "Subnational region - HDI", 
          favourable_indicator_new = 1) %>%
   ungroup()
+
 data_subnational_hdi <- data_merged
 
 # ---- Append immunization and HDI datasets ----
@@ -113,7 +137,10 @@ data <- data_imm %>%
 
 ## Binary dimension (place of residence)
 measures_binary <- data %>%
-  group_by(setting, date, indicator_abbr, dimension) %>%
+  group_by(setting,
+           date, 
+           indicator_abbr,
+           dimension) %>%
   filter(dimension == "Place of residence") %>%
   summarise(d = d(est = estimate, 
                   se = se, 
@@ -131,11 +158,17 @@ summary_binary <- cbind(setting = rep(measures_binary$setting, 1),
                         indicator = rep(measures_binary$indicator_abbr, 1),
                         dimension = rep(measures_binary$dimension, 1),
                         bind_rows(measures_binary$d, measures_binary$r)) %>%
-  arrange(setting, date, indicator, measure)
+  arrange(setting,
+          date,
+          indicator,
+          measure)
 
 ## Ordered dimensions (economic status and subnational region ordered by HDI)
 measures_ordered <- data %>%
-  group_by(setting, date, indicator_abbr, dimension) %>%
+  group_by(setting,
+           date,
+           indicator_abbr,
+           dimension) %>%
   filter(ordered_dimension == 1) %>%
   summarise(d = d(est = estimate, 
                 se = se, 
@@ -186,11 +219,17 @@ summary_ordered <- cbind(setting = rep(measures_ordered$setting, 1),
                                measures_ordered$rii,
                                measures_ordered$par, 
                                measures_ordered$paf)) %>%
-  arrange(setting, date, indicator, measure)
+  arrange(setting,
+          date,
+          indicator,
+          measure)
 
 ## Non-ordered dimension (subnational region)
 measures_nonordered <- data %>%
-  group_by(setting, date, indicator_abbr, dimension) %>%
+  group_by(setting,
+           date,
+           indicator_abbr,
+           dimension) %>%
   filter(dimension == "Subnational region") %>%
   summarise(d = d(est = estimate,
                   se = se,
@@ -260,7 +299,10 @@ summary_nonordered <- cbind(setting = rep(measures_nonordered$setting, 1),
                                       measures_nonordered$ti,
                                       measures_nonordered$par, 
                                       measures_nonordered$paf)) %>%
-  arrange(setting, date, indicator, measure)
+  arrange(setting,
+          date,
+          indicator,
+          measure)
 
 # Append results
 country_results <- summary_binary %>%
@@ -284,6 +326,9 @@ country_results <- summary_binary %>%
     measure == "par" ~ "Population attributable risk",
     measure == "paf" ~ "Population attributable fraction",
     TRUE ~ measure)) %>%
-  arrange(measure, dimension, indicator, setting)
+  arrange(measure,
+          dimension,
+          indicator,
+          setting)
 
-write.csv(country_results, "R-country-results.csv")
+write.csv(country_results, "Results/R-country-results.csv")
