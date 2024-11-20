@@ -6,3 +6,4 @@
 # Ignore macOS system files
 .DS_Store
 R/.DS_Store
+.Rproj.user

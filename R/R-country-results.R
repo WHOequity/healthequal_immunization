@@ -31,7 +31,7 @@ data_imm <- df_imm %>%
            date,
            indicator_abbr,
            dimension) %>%
-   ### Drop if all subgroups have missing data or all values equal to zero
+  ### Drop if all subgroups have missing data or all values equal to zero
   mutate(count = n(),
          todrop = all(is.na(estimate)),
          avge = mean(estimate, na.rm = TRUE)) %>%
@@ -157,7 +157,8 @@ summary_binary <- cbind(setting = rep(measures_binary$setting, 1),
                         date = rep(measures_binary$date, 1),
                         indicator = rep(measures_binary$indicator_abbr, 1),
                         dimension = rep(measures_binary$dimension, 1),
-                        bind_rows(measures_binary$d, measures_binary$r)) %>%
+                        bind_rows(measures_binary$d, 
+                                  measures_binary$r)) %>%
   arrange(setting,
           date,
           indicator,
@@ -280,8 +281,7 @@ measures_nonordered <- data %>%
                       ordered_dimension = ordered_dimension,
                       favourable_indicator = favourable_indicator,
                       scaleval = indicator_scale,
-                      pop = population)
-  )
+                      pop = population))
 
 summary_nonordered <- cbind(setting = rep(measures_nonordered$setting, 1),
                             date = rep(measures_nonordered$date, 1),
